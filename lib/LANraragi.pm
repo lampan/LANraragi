@@ -105,7 +105,11 @@ sub startup {
                 open( my $fh, '>>', $logpath )
                   or die "Could not open file '$logpath' $!";
 
-                print $fh "[Mojolicious] " . $lines[0] . " " . $lines[1] . "\n";
+                if ( defined $lines[0] and defined $lines[1] ) {
+                    print $fh "[Mojolicious] " . $lines[0] . " " . $lines[1] . "\n";
+                } elsif ( defined $lines[0] ) {
+                    print $fh "[Mojolicious] " . $lines[0] . "\n";
+                }
                 close $fh;
             }
         );
@@ -193,7 +197,7 @@ sub add_sigint_handler {
         shutdown_from_pid( get_temp . "/minion.pid" );
 
         \&$old_int;    # Calling the old handler to cleanly exit the server
-      }
+    }
 }
 
 1;

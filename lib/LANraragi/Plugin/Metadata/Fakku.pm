@@ -9,6 +9,7 @@ use URI::Escape;
 use Mojo::JSON qw(decode_json);
 use Mojo::UserAgent;
 use Mojo::DOM;
+use String::Similarity qw(similarity);
 
 #You can also use the LRR Internal API when fitting.
 use LANraragi::Model::Plugins;
@@ -64,6 +65,36 @@ sub get_tags {
     # Do we have a URL to grab data from?
     if ( $fakku_URL ne "" ) {
         $logger->debug("Detected FAKKU URL: $fakku_URL");
+
+        # Extract tags from the FAKKU gallery page
+        my ( $newtags, $newtitle ) = get_tags_from_fakku( $fakku_URL, $ua );
+
+        # Remove the [Artist] substring from the archive title
+        my $archive_title = $lrr_info->{archive_title};
+        $archive_title =~ s/^\[[^\]]*\]\s*|\s*\[[^\]]*\]$//g;
+
+        # Calculate similarity score between archive title and FAKKU gallery title
+        my $similarity_score = similarity( $archive_title, $newtitle );
+
+        $logger->debug("Archive title: $lrr_info->{archive_title}");
+        $logger->debug("FAKKU gallery title: $newtitle");
+        $logger->debug("Similarity score: $similarity_score");
+
+        # Only accept FAKKU gallery title if similarity score is high enough
+        if ( $similarity_score >= 0.9 ) {
+            $logger->info("Sending the following tags to LRR: $newtags");
+
+            # Return a hash containing the new metadata - it will be integrated in LRR.
+            if ( $savetitle && $newtags ne "" ) {
+                return ( tags => $newtags, title => $newtitle );
+            } else {
+                return ( tags => $newtags );
+            }
+        } else {
+            $logger->info("FAKKU gallery title does not match archive title closely enough (similarity score: $similarity_score)");
+            return ( error => "FAKKU gallery title does not match archive title closely enough" );
+        }
+
     } else {
         $logger->info("No matching FAKKU Gallery Found!");
         return ( error => "No matching FAKKU Gallery Found!" );
